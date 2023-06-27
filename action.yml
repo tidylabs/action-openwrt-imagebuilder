@@ -1,0 +1,42 @@
+name: "OpenWrt Image Builder"
+description: >
+  Build custom images using the OpenWrt Image Builder environment.
+branding:
+  icon: wifi
+  color: gray-dark
+inputs:
+  profile:
+    description: >
+      Target profile (e.g. friendlyarm_nanopi-r4s).
+  target:
+    description: >
+      Target device type (e.g. rockchip/armv8).
+  version:
+    description: >
+      Target version (e.g. 22.03.0-rc1).
+  packages:
+    description: >
+      List of packages to include or exclude (e.g. "luci firewall -firewall4").
+  patches_dir:
+    description: >
+      Directory of ".patch" files to apply to the imagebuilder environment.
+    default: "./patches"
+  files_dir:
+    description: >
+      Directory of extra files to include in rootfs partition.
+    default: "./files"
+  packages_dir:
+    description: >
+      Directory of ".ipk" files to install in image.
+    default: "./packages"
+  bin_dir:
+    description: >
+      Output directory for the images.
+    default: "."
+  json_file:
+    description: >
+      JSON file with default image arguments.
+    default: "./image.json"
+runs:
+  using: "docker"
+  image: "Dockerfile"

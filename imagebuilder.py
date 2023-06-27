@@ -19,6 +19,9 @@ URL_IMAGEBUILDER_RELEASE = "https://downloads.openwrt.org"\
     "/releases/{version}/targets/{target}/{subtarget}"\
     "/openwrt-imagebuilder-{version}-{target}-{subtarget}.Linux-x86_64.tar.xz"
 
+def join(iterable, delimiter=', '):
+    return iterable if isinstance(iterable, str) else delimiter.join(iterable)
+
 def basename(path, suffix=""):
     name = os.path.basename(path)
     return name[:-len(suffix)] if suffix and name.endswith(suffix) else name
@@ -84,12 +87,12 @@ if __name__ == "__main__":
     args_parser.add_argument(
         "--patches_dir",
         default="./patches",
-        help="directory of \".patch\" files to apply to imagebuilder",
+        help="directory of \".patch\" files to apply to the imagebuilder environment",
     )
     args_parser.add_argument(
         "--files_dir",
         default="./files",
-        help="directory of extra files to include in rootfs",
+        help="directory of extra files to include in rootfs partition",
     )
     args_parser.add_argument(
         "--packages_dir",
@@ -105,7 +108,7 @@ if __name__ == "__main__":
     config_parser = argparse.ArgumentParser(add_help=False)
     config_parser.add_argument(
         "--json_file",
-        default="./image.json",
+        default=os.getenv("INPUT_JSON_FILE", "./image.json"),
         help="json file with default image arguments"
     )
 
@@ -120,13 +123,19 @@ if __name__ == "__main__":
     if json_file.exists():
         defaults = json.load(json_file.open())
         parser.set_defaults(**defaults)
+    
+    env_defaults = {}
+    for key, value in os.environ.items():
+        if key.startswith("INPUT_") and value:
+             env_defaults[key[6:].lower()] = value
+    parser.set_defaults(**env_defaults)
 
     parser.parse_args(argv, args)
 
     profile = args.profile
     target, subtarget = args.target.split("/", 1)
     version = args.version
-    packages = args.packages
+    packages = join(args.packages, delimiter=' ')
 
     patches_dir = Path(args.patches_dir).resolve()
     files_dir = Path(args.files_dir).resolve()
@@ -160,7 +169,7 @@ if __name__ == "__main__":
     if profile:
         imagebuilder_cmd += [ f"PROFILE={profile}" ]
     if packages:
-        imagebuilder_cmd += [ f"PACKAGES={' '.join(packages)}" ]
+        imagebuilder_cmd += [ f"PACKAGES={packages}" ]
     if files_dir.exists():
         imagebuilder_cmd += [ f"FILES={files_dir}" ]
     if bin_dir:
