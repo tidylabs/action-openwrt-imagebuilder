@@ -1,6 +1,6 @@
-FROM debian:latest
+FROM debian:12.0-slim
 
-ENV LC_ALL C.UTF-8
+ENV LANG C.UTF-8
 
 RUN apt-get update \
     && apt-get install -y \
