@@ -1,0 +1,6 @@
+{
+    "name": "action-openwrt-imagebuilder",
+    "build": {
+        "dockerfile": "Dockerfile"
+    }
+}
