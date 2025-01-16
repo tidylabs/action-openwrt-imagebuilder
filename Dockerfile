@@ -11,6 +11,7 @@ RUN apt-get update \
         make \
         perl \
         python3-distutils \
+        python3-zstandard \
         rsync \
         unzip \
         wget \

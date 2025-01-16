@@ -3,9 +3,11 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import tarfile
+import zstandard
 
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -14,13 +16,40 @@ from urllib.request import urlopen
 
 URL_IMAGEBUILDER_SNAPSHOT = "https://downloads.openwrt.org"\
     "/snapshots/targets/{target}/{subtarget}"\
-    "/openwrt-imagebuilder-{target}-{subtarget}.Linux-x86_64.tar.xz"
+    "/openwrt-imagebuilder-{target}-{subtarget}.Linux-x86_64.{ext}"
 URL_IMAGEBUILDER_RELEASE = "https://downloads.openwrt.org"\
     "/releases/{version}/targets/{target}/{subtarget}"\
-    "/openwrt-imagebuilder-{version}-{target}-{subtarget}.Linux-x86_64.tar.xz"
+    "/openwrt-imagebuilder-{version}-{target}-{subtarget}.Linux-x86_64.{ext}"
 
-def join(iterable, delimiter=', '):
-    return iterable if isinstance(iterable, str) else delimiter.join(iterable)
+def compare_version(ver1, ver2):
+    pattern = r"(?P<year>\d\d)\.(?P<month>0[1-9]|1[0-2])\.(?P<release>0|[1-9]\d*)(?:-rc(?P<candidate>[1-9]\d*))?"
+    match1 = re.search(pattern, ver1)
+    match2 = re.search(pattern, ver2)
+
+    year1 = match1.group('year')
+    year2 = match2.group('year')
+    if year1 != year2:
+        return 1 if year1 > year2 else -1
+
+    month1 = match1.group('month')
+    month2 = match2.group('month')
+    if month1 != month2:
+        return 1 if month1 > month2 else -1
+
+    release1 = match1.group('release')
+    release2 = match2.group('release')
+    if release1 != release2:
+        return 1 if release1 > release2 else -1
+
+    candidate1 = match1.group('candidate')
+    candidate2 = match2.group('candidate')
+    if candidate1 != candidate2:
+        return 1 if candidate1 is None or (candidate2 and candidate1 > candidate2) else -1
+
+    return 0
+
+def join(iterable, delimiter=", "):
+    return iterable if isinstance(iterable, str) else delimiter.join(iterable or "")
 
 def basename(path, suffix=""):
     name = os.path.basename(path)
@@ -51,17 +80,17 @@ def urldownload(url, path="."):
             while block := response.read(1024 * 8):
                 read += len(block)
                 file.write(block)
-            
+
             if mtime != -1:
                 atime = filename.stat().st_atime
                 os.utime(filename, times=(atime, mtime))
-        
+
         if size >= 0 and read < size:
             raise ContentTooShortError(
                 f"download incomplete: got only {read} out of {size} bytes",
                 content=(filename, response.info()),
             )
-    
+
     return filename
 
 if __name__ == "__main__":
@@ -123,7 +152,7 @@ if __name__ == "__main__":
     if json_file.exists():
         defaults = json.load(json_file.open())
         parser.set_defaults(**defaults)
-    
+
     env_defaults = {}
     for key, value in os.environ.items():
         if key.startswith("INPUT_") and value:
@@ -135,25 +164,33 @@ if __name__ == "__main__":
     profile = args.profile
     target, subtarget = args.target.split("/", 1)
     version = args.version
-    packages = join(args.packages, delimiter=' ')
+    packages = join(args.packages, delimiter=" ")
 
     patches_dir = Path(args.patches_dir).resolve()
     files_dir = Path(args.files_dir).resolve()
     packages_dir = Path(args.packages_dir).resolve()
     bin_dir = Path(args.bin_dir).resolve()
 
+    ext = "tar.zst" if version == "SNAPSHOT" or compare_version("24.10.0-rc1", version) <= 0 else "tar.xz"
+
     imagebuilder_url = (URL_IMAGEBUILDER_SNAPSHOT if version == "SNAPSHOT"
         else URL_IMAGEBUILDER_RELEASE).format(**locals())
     imagebuilder_tar = urldownload(imagebuilder_url)
 
-    imagebuilder_dir = basename(imagebuilder_url, suffix=".tar.xz")
+    imagebuilder_dir = basename(imagebuilder_url, suffix=f".{ext}")
     if os.path.exists(imagebuilder_dir):
         print(f"Deleting stale directory: {imagebuilder_dir}")
         shutil.rmtree(imagebuilder_dir)
 
-    with tarfile.open(name=imagebuilder_tar) as tar_file:
-        print(f"Extracting: {imagebuilder_tar.name}")
-        tar_file.extractall()
+    if ext.endswith("zst"):
+        with zstandard.open(imagebuilder_tar, "rb") as zst_file:
+            with tarfile.TarFile.taropen(None, "r", zst_file) as tar_file:
+                print(f"Extracting: {imagebuilder_tar.name}")
+                tar_file.extractall()
+    else:
+        with tarfile.open(name=imagebuilder_tar) as tar_file:
+            print(f"Extracting: {imagebuilder_tar.name}")
+            tar_file.extractall()
 
     os.chdir(imagebuilder_dir)
 
@@ -172,6 +209,9 @@ if __name__ == "__main__":
         imagebuilder_cmd += [ f"PACKAGES={packages}" ]
     if files_dir.exists():
         imagebuilder_cmd += [ f"FILES={files_dir}" ]
-    if bin_dir:
-        imagebuilder_cmd += [ f"BIN_DIR={bin_dir}" ]
     subprocess.run(imagebuilder_cmd, check=True)
+
+    os.makedirs(bin_dir, exist_ok=True)
+    for img_file in Path("bin").glob("**/*.img*"):
+        print(f"Copying image: {img_file.name}")
+        shutil.copy2(img_file, bin_dir)
