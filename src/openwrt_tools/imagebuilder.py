@@ -1,5 +1,7 @@
-#!/usr/bin/env python3
-
+# Copyright (c) 2023-25 Tidy Labs, LLC
+"""
+Builds an OpenWrt image using the Image Builder.
+"""
 import argparse
 import json
 import os
@@ -93,7 +95,7 @@ def urldownload(url, path="."):
 
     return filename
 
-if __name__ == "__main__":
+def main() -> int:
     args_parser = argparse.ArgumentParser(add_help=False)
     args_parser.add_argument(
         "--profile",
@@ -215,3 +217,8 @@ if __name__ == "__main__":
     for img_file in Path("bin").glob("**/*.img*"):
         print(f"Copying image: {img_file.name}")
         shutil.copy2(img_file, bin_dir)
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openwrt-tools"
+version = "0.0.1"
+authors = [
+    { name="Justin Klaassen", email="justin@tidylabs.net" },
+]
+description = "Tools for building OpenWrt images and packages"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+]
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "zstandard==0.23.0",
+]
+
+[project.scripts]
+openwrt-imagebuilder = "openwrt_tools.imagebuilder:main"
+
+[project.urls]
+homepage = "https://github.com/tidylabs/action-openwrt-imagebuilder"

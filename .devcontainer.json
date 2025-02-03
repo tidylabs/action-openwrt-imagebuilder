@@ -1,6 +1,12 @@
 {
     "name": "action-openwrt-imagebuilder",
     "build": {
-        "dockerfile": "Dockerfile"
+        "dockerfile": "Dockerfile",
+        "target": "dev"
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:latest": {
+            "moby": false
+        }
     }
 }
