@@ -12,8 +12,8 @@ RUN apt-get update \
         perl \
         patch \
         python3 \
-        python3-distutils \
         python3-pip \
+        python3-setuptools \
         rsync \
         unzip \
         wget \
