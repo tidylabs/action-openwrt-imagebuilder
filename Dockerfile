@@ -1,4 +1,4 @@
-FROM debian:13.4-slim AS base
+FROM debian:13.5-slim AS base
 
 ENV LANG C.UTF-8
 
